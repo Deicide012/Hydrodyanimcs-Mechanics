@@ -1,0 +1,94 @@
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.interpolate import CubicSpline
+from scipy.optimize import fsolve, brentq
+
+
+nq2 = [920.8279849058582, 1012.6000889765035, 1230.5124539080418, 1571.1836826005397, 
+       2036.0297782124317, 2496.7438018540533, 3060.4916687610403, 3516.6299943566305, 
+       4100.892351404867, 5150.225507136308]
+
+eta2 = [74.4, 75.6, 77.86666666666666, 79.73333333333333, 81.33333333333333, 
+        81.86666666666666, 81.6, 81.2, 80.53333333333333, 79.06666666666666]
+
+nq1 = [736.5244159695385, 886.7032678140704, 1056.3879754525703, 1258.2944249287448, 
+       1506.1569998279997, 1766.7807988420761, 2041.2972219181113, 2453.9426846211536, 
+       3053.2010247274575, 3704.6031297861405]
+
+eta1 = [64.93333333333334, 68.4, 70.8, 72.8, 74.66666666666666, 
+        75.86666666666666, 76.53333333333333, 77.06666666666666, 76.8, 76]
+
+param1 = 110  
+param2 = 220  
+
+cs1 = CubicSpline(np.log10(nq1), eta1)
+cs2 = CubicSpline(np.log10(nq2), eta2)
+
+nq1_dense = np.logspace(np.log10(min(nq1)), np.log10(max(nq1)), 200)
+nq2_dense = np.logspace(np.log10(min(nq2)), np.log10(max(nq2)), 200)
+
+
+def get_eta(nq_value, param_value):
+    nq_scalar = float(np.atleast_1d(nq_value)[0])
+
+    if nq_scalar <= 0:
+        return np.nan
+    
+    eta_at_param1 = float(cs1(np.log10(nq_scalar)))
+    eta_at_param2 = float(cs2(np.log10(nq_scalar)))
+    eta_interpolated = np.interp(param_value, [param1, param2], [eta_at_param1, eta_at_param2])
+    return float(eta_interpolated)
+
+
+def get_nq(eta_value, param_value):
+    nq_min = max(min(nq1), min(nq2))
+    nq_max = min(max(nq1), max(nq2))
+
+    def equation(nq):
+        return get_eta(nq, param_value) - eta_value
+
+    try:
+        nq_solution = brentq(equation, nq_min, nq_max)
+        return nq_solution
+    except ValueError:
+        print(f"Warning: η={eta_value}% μπορεί να είναι εκτός εύρους για param={param_value}")
+        initial_guess = (nq_min + nq_max) / 2
+        nq_solution = fsolve(equation, initial_guess, full_output=True)
+        if nq_solution[2] == 1: 
+            return nq_solution[0][0]
+        else:
+            return np.nan
+
+fig, ax = plt.subplots(figsize=(10, 6))
+ax.plot(nq1, eta1, marker='o', label='110', linestyle='')
+ax.plot(nq1_dense, cs1(np.log10(nq1_dense)), label='110')
+ax.plot(nq2, eta2, marker='s', label='220', linestyle='')
+ax.plot(nq2_dense, cs2(np.log10(nq2_dense)), label='220')
+
+param_intermediate = 211
+nq_min_common = max(min(nq1), min(nq2))  
+nq_max_common = min(max(nq1), max(nq2))  
+nq_test = np.logspace(np.log10(nq_min_common), np.log10(nq_max_common), 100)
+eta_intermediate = [get_eta(nq, param_intermediate) for nq in nq_test]
+
+ax.plot(nq_test, eta_intermediate, label=f'{param_intermediate}')
+ax.set_xscale('log')
+ax.set_xlim(500, 15000)
+ax.set_ylim(40, 100)
+ax.set_xticks([600, 800, 1000, 1500, 2000, 3000, 4000, 5000, 6000, 8000, 10000])
+ax.get_xaxis().set_major_formatter(plt.ScalarFormatter())
+ax.set_xlabel('n$_q$ (Q σε m³/h)')
+ax.set_ylabel('Ολικός βαθμός απόδοσης %')
+ax.legend()
+ax.grid(True, which='both')
+plt.tight_layout()
+plt.show()
+
+
+nq_max = max(nq_test)
+eta_max = get_eta(nq_max, param_intermediate)
+print(f'Max n_q: {nq_max:.2f}, για {param_intermediate}: {eta_max:.2f}%')
+
+print(f'\nη at n_q=2500 and param=211: {get_eta(2500, 211):.2f}%')
+print(f'n_q at η=75% and param=211: {get_nq(75, 211):.2f}')
+print(f'n_q at η=80% and param=211: {get_nq(80, 211):.2f}')
