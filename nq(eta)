@@ -85,9 +85,9 @@ plt.tight_layout()
 plt.show()
 
 
-nq_max = max(nq_test)
-eta_max = get_eta(nq_max, param_intermediate)
-print(f'Max n_q: {nq_max:.2f}, για {param_intermediate}: {eta_max:.2f}%')
+eta_max = max(eta_intermediate)
+nq_best = nq_test[eta_intermediate.index(eta_max)]
+print(f'Max n_q: {nq_best:.2f}, για {param_intermediate}: {eta_max:.2f}%')
 
 print(f'\nη at n_q=2500 and param=211: {get_eta(2500, 211):.2f}%')
 print(f'n_q at η=75% and param=211: {get_nq(75, 211):.2f}')
